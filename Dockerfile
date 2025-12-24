@@ -1,26 +1,19 @@
-# Start FastAPI
-FROM cfm
+FROM ubuntu:18.04
 
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
+RUN apt-get update -y && apt-get upgrade -y
+RUN apt-get install -y gradle maven git libpcap-dev
 
-# Install Python and pip
-RUN apt-get update && \
-    apt-get install -y python3 python3-pip && \
-    rm -rf /var/lib/apt/lists/*
+RUN git clone https://github.com/CanadianInstituteForCybersecurity/CICFlowMeter /code
+RUN cd /code/jnetpcap/linux/jnetpcap-1.4.r1425 && \
+    mvn install:install-file \
+        -Dfile=jnetpcap.jar -DgroupId=org.jnetpcap -DartifactId=jnetpcap \
+        -Dversion=1.4.1 -Dpackaging=jar
+WORKDIR /code
+RUN gradle --no-daemon build
 
-# Install Python dependencies
-RUN pip3 install --no-cache-dir fastapi uvicorn python-multipart
+COPY gradle-task /gradle-task
+RUN cat /gradle-task >>build.gradle && rm /gradle-task
 
-# Create app directory
-WORKDIR /app
-
-# Copy FastAPI code
-COPY app/ /app/
-
-# Expose API port
-EXPOSE 8000
-
-# Start FastAPI
-ENTRYPOINT ["uvicorn"]
-CMD ["main:app", "--host", "0.0.0.0", "--port", "8000"]
+COPY go /go
+RUN chmod 500 /go
+ENTRYPOINT ["/go"]
